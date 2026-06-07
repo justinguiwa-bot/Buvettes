@@ -482,6 +482,33 @@ select.inp{cursor:pointer}
   </div>
 </div>
 
+<!-- MODAL SUGGESTIONS APPRO -->
+<div class="modal-bg" id="suggestApproModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-title">💡 Suggestions d'Appro<button class="modal-close" onclick="document.getElementById('suggestApproModal').classList.remove('open')">✕</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="background:var(--s2);border-radius:8px;padding:8px 12px">
+        <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Base calcul</div>
+        <select class="inp inp-sm" id="suggestBase" onchange="calculerSuggestions()">
+          <option value="both">Stock min + Moyenne</option>
+          <option value="min">Stock minimum</option>
+          <option value="avg">Moyenne ventes</option>
+        </select>
+      </div>
+      <div style="background:var(--s2);border-radius:8px;padding:8px 12px">
+        <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Jours de référence</div>
+        <select class="inp inp-sm" id="suggestJours" onchange="calculerSuggestions()">
+          <option value="3">3 jours</option>
+          <option value="7" selected>7 jours</option>
+          <option value="14">14 jours</option>
+        </select>
+      </div>
+    </div>
+    <div id="suggestListe" style="margin-bottom:14px;max-height:340px;overflow-y:auto"></div>
+    <button class="btn btn-accent" style="width:100%" onclick="appliquerSuggestions()">📥 Pré-remplir la livraison</button>
+  </div>
+</div>
+
 <!-- TOP BAR -->
 <div id="topbar">
   <div style="display:flex;flex-direction:column;flex:1;min-width:0">
@@ -639,7 +666,10 @@ select.inp{cursor:pointer}
       <div id="approResume" style="margin-top:12px"></div>
       <button class="btn btn-accent" style="width:100%;margin-top:12px" onclick="validerAppro()">✅ Valider la livraison</button>
     </div>
-    <div class="stitle" style="margin-top:4px">📋 Historique Appros du Jour</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;margin-bottom:6px">
+      <div class="stitle" style="margin:0">📋 Historique Appros du Jour</div>
+      <button class="btn btn-blue btn-sm" onclick="ouvrirSuggestions()">💡 Suggestions</button>
+    </div>
     <div id="approHistorique"></div>
   </div>
 
