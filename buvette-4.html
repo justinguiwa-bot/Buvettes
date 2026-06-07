@@ -2519,7 +2519,7 @@ function appliquerSuggestions(){
 // ═══════════════════════════════════════════════
 const GH_USER = 'justinguiwa-bot';
 const GH_REPO_BUVETTE = 'Buvettes';
-const GH_TOKEN = atob('Z2hwX3lXZkk3YTA1U3djU01JdzVJT0tsaEJ6U2E5R3VpYjA1WU5HVg==');
+const GH_TOKEN = atob('Z2hwX011NGtOcHF2MzdWVHk4TDlrclZkY2Vmb1kxdklFazJ3enpraw==');
 const GH_RAPPORT_PATH = 'rapport-dg.json';
 
 async function envoyerRapportGitHub(rapportData){
@@ -2549,7 +2549,13 @@ async function envoyerRapportGitHub(rapportData){
   });
 
   if(res.ok){ toast('📤 Rapport envoyé au DG !'); return true; }
-  else { toast('Erreur envoi GitHub','err'); return false; }
+  else {
+    const errData = await res.json().catch(()=>({}));
+    const msg = errData.message || ('HTTP '+res.status);
+    toast('Erreur GitHub: '+msg,'err');
+    console.error('GitHub error:', res.status, errData);
+    return false;
+  }
 }
 
 async function envoyerAuDG(){
@@ -2560,7 +2566,10 @@ async function envoyerAuDG(){
     const data = JSON.parse(json);
     toast('📤 Envoi en cours…');
     await envoyerRapportGitHub(data);
-  } catch(e){ toast('Erreur: '+e.message,'err'); }
+  } catch(e){
+    toast('Erreur: '+e.message,'err');
+    console.error('envoyerAuDG error:', e);
+  }
 }
 
 </script>
