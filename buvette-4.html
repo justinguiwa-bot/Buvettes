@@ -444,12 +444,14 @@ select.inp{cursor:pointer}
   <div class="modal" style="max-width:360px;text-align:center">
     <div class="modal-title" style="justify-content:center">📊 Rapport Journalier Généré<button class="modal-close" onclick="document.getElementById('rapportCodeModal').classList.remove('open')" style="position:absolute;right:14px">✕</button></div>
     <div style="font-size:13px;color:var(--muted2);margin-bottom:16px" id="rcDate"></div>
-    <div style="background:var(--s2);border:2px dashed var(--accent);border-radius:12px;padding:18px;margin-bottom:16px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.1em">Code du rapport</div>
-      <div id="rcCode" style="font-family:'Space Mono',monospace;font-size:22px;font-weight:800;color:var(--accent);letter-spacing:.15em;word-break:break-all"></div>
+    <div style="background:var(--s2);border:2px dashed var(--accent);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.1em">Code du rapport — sélectionnez tout et copiez</div>
+      <textarea id="rcCode" readonly onclick="this.select()" style="width:100%;background:transparent;border:none;color:var(--accent);font-family:'Space Mono',monospace;font-size:11px;font-weight:700;word-break:break-all;resize:none;outline:none;line-height:1.6;cursor:text;min-height:90px;-webkit-text-fill-color:var(--accent)!important"></textarea>
     </div>
     <button onclick="copierCodeRapport()" class="btn btn-accent" style="width:100%;margin-bottom:8px">📋 Copier le code</button>
-    <div style="font-size:11px;color:var(--muted)">Transmettez ce code au DG pour qu'il consulte le rapport dans l'appli de supervision.</div>
+    <button onclick="telechargerCodeRapport()" class="btn btn-blue" style="width:100%;margin-bottom:8px">📥 Télécharger .txt</button>
+    <button onclick="envoyerAuDG()" class="btn btn-green" style="width:100%;margin-bottom:8px">📤 Envoyer directement au DG</button>
+    <div style="font-size:11px;color:var(--muted)">Le DG verra le rapport automatiquement dans son appli.</div>
   </div>
 </div>
 
@@ -1731,6 +1733,20 @@ function definirDateJour(manuel){
   toast('🌅 Nouvelle journée : '+fmtDate(state.dateJour));
 }
 
+function telechargerCodeRapport(){
+  const code = document.getElementById('rcCode').dataset.full || dernierCodeRapport;
+  const date = document.getElementById('rcDate').textContent || 'rapport';
+  if(!code){ toast('Aucun code disponible','err'); return; }
+  const blob = new Blob([code], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'rapport-'+date.replace(/[^a-zA-Z0-9]/g,'-')+'.txt';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  toast('✅ Fichier téléchargé !');
+}
+
 function copierCodeRapport(){
   const code = document.getElementById('rcCode').dataset.full || dernierCodeRapport;
   if(!code) return;
@@ -2496,6 +2512,55 @@ function appliquerSuggestions(){
   if(typeof calculerAppro === 'function') calculerAppro();
   document.getElementById('suggestApproModal').classList.remove('open');
   toast('✅ Quantités pré-remplies dans la livraison !');
+}
+
+// ═══════════════════════════════════════════════
+// CONFIG GITHUB SYNC
+// ═══════════════════════════════════════════════
+const GH_USER = 'justinguiwa-bot';
+const GH_REPO_BUVETTE = 'Buvettes';
+const GH_TOKEN = atob('Z2hwX3lXZkk3YTA1U3djU01JdzVJT0tsaEJ6U2E5R3VpYjA1WU5HVg==');
+const GH_RAPPORT_PATH = 'rapport-dg.json';
+
+async function envoyerRapportGitHub(rapportData){
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(rapportData))));
+  const apiUrl = `https://api.github.com/repos/${GH_USER}/${GH_REPO_BUVETTE}/contents/${GH_RAPPORT_PATH}`;
+  
+  // Vérifier si le fichier existe déjà pour récupérer son SHA
+  let sha = null;
+  try {
+    const check = await fetch(apiUrl, {
+      headers: { 'Authorization': 'token ' + GH_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if(check.ok){ const d = await check.json(); sha = d.sha; }
+  } catch(e){}
+
+  const body = { message: 'Rapport ' + rapportData.date, content };
+  if(sha) body.sha = sha;
+
+  const res = await fetch(apiUrl, {
+    method: 'PUT',
+    headers: {
+      'Authorization': 'token ' + GH_TOKEN,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+
+  if(res.ok){ toast('📤 Rapport envoyé au DG !'); return true; }
+  else { toast('Erreur envoi GitHub','err'); return false; }
+}
+
+async function envoyerAuDG(){
+  const code = document.getElementById('rcCode').dataset.full || dernierCodeRapport;
+  if(!code){ toast('Aucun rapport à envoyer','err'); return; }
+  try {
+    const json = decodeURIComponent(escape(atob(code)));
+    const data = JSON.parse(json);
+    toast('📤 Envoi en cours…');
+    await envoyerRapportGitHub(data);
+  } catch(e){ toast('Erreur: '+e.message,'err'); }
 }
 
 </script>
