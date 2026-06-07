@@ -311,7 +311,7 @@ select.inp{cursor:pointer}
 /* ── Caisse mobile ── */
 @media(max-width:600px){
   #caisseCartes{grid-template-columns:repeat(3,1fr)!important;padding:7px!important;gap:6px!important}
-  .carte-boisson{padding:8px 4px!important;min-height:72px!important}
+  .carte-boisson{position:relative;padding:8px 4px!important;min-height:72px!important}
   .carte-boisson .cb-emoji{font-size:22px!important}
   .carte-boisson .cb-nom{font-size:10px!important}
   .carte-boisson .cb-prix{font-size:10px!important}
@@ -552,7 +552,7 @@ select.inp{cursor:pointer}
     <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:7px 10px;display:flex;align-items:center;gap:7px;flex-shrink:0">
       <span style="font-size:13px;font-weight:800;color:var(--accent);white-space:nowrap">⚡ Caisse</span>
       <input id="caisseClient" class="inp" placeholder="Table / Client..." style="flex:1;padding:5px 9px;font-size:12px">
-      <input id="caisseObs" class="inp" placeholder="Obs. (impayé...)" style="flex:1;padding:5px 9px;font-size:12px">
+      <button id="btnPaiement" onclick="togglePaiement()" style="padding:5px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:800;white-space:nowrap;background:rgba(34,197,94,.2);color:var(--green)">✅ Payé</button>
       <button class="btn btn-ghost btn-sm" onclick="caisseClear()" style="padding:5px 8px;font-size:11px;white-space:nowrap">↺</button>
     </div>
 
@@ -1067,6 +1067,7 @@ function openCmdModal(){
         <button class="qbtn minus btn-sm" onclick="cmdAdj(${b.id},-1)" style="width:26px;height:26px">−</button>
         <input class="qinp" id="cqi-${b.id}" value="0" type="number" min="0" style="width:44px;font-size:13px" oninput="cmdCalc()">
         <button class="qbtn plus btn-sm" onclick="cmdAdj(${b.id},1)" style="width:26px;height:26px">+</button>
+        <button onclick="cmdReset(${b.id})" style="width:22px;height:22px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:5px;cursor:pointer;font-size:12px;display:none" id="crst-${b.id}">✕</button>
       </div>
       <span style="font-family:'Space Mono',monospace;font-size:12px;color:var(--green);min-width:80px;text-align:right" id="csub-${b.id}">—</span>
     </div>`;
@@ -1081,12 +1082,22 @@ function cmdAdj(id,d){
   inp.value=Math.max(0,(parseInt(inp.value)||0)+d);
   cmdCalc();
 }
+function cmdReset(id){
+  const inp = document.getElementById('cqi-'+id);
+  if(inp){ inp.value=0; }
+  const btn = document.getElementById('crst-'+id);
+  if(btn) btn.style.display='none';
+  cmdCalc();
+}
 function cmdCalc(){
   let total=0;
   state.boissons.forEach(b=>{
     const q=parseInt(document.getElementById('cqi-'+b.id)?.value)||0;
     const sub=q*b.prix;
     total+=sub;
+    // Afficher/masquer le bouton ✕
+    const rst=document.getElementById('crst-'+b.id);
+    if(rst) rst.style.display = q>0 ? 'block' : 'none';
     const el=document.getElementById('csub-'+b.id);
     if(el) el.textContent=q>0?fcfa(sub):'—';
   });
@@ -1573,6 +1584,7 @@ function renderParams(){
       <select class="inp inp-sm" id="bnb-${b.id}">
         ${[1,6,8,12,24].map(n=>`<option value="${n}"${b.nbParCond===n?' selected':''}>${n===1?'×1':n===6?'×6':n===8?'×8':n===12?'×12':'×24'}</option>`).join('')}
       </select>
+      <input class="inp inp-sm" type="number" value="${b.stockMin||0}" id="bsm-${b.id}" min="0" placeholder="Min" title="Stock minimum">
       <button class="btn btn-green btn-sm" onclick="saveBoisson(${b.id})">💾</button>
       <button class="btn btn-red btn-sm" onclick="delBoisson(${b.id})">🗑️</button>
     </div>`).join('');
@@ -1592,6 +1604,7 @@ function saveBoisson(id){
   b.prixCond=parseFloat(document.getElementById('bpc-'+id).value)||b.prixCond;
   b.type=document.getElementById('bt-'+id).value;
   b.nbParCond=parseInt(document.getElementById('bnb-'+id).value)||b.nbParCond;
+  b.stockMin=parseInt(document.getElementById('bsm-'+id).value)||0;
   save();toast('✅ Mis à jour: '+b.nom);
   if(currentTab==='ventes') renderVentes();
 }
@@ -1745,6 +1758,21 @@ renderStockRecap();
 // CAISSE RAPIDE
 // ═══════════════════════════════════════════════
 let panier = {}; // {boissonId: qte}
+let caisseEstImpaye = false;
+
+function togglePaiement(){
+  caisseEstImpaye = !caisseEstImpaye;
+  const btn = document.getElementById('btnPaiement');
+  if(caisseEstImpaye){
+    btn.style.background = 'rgba(239,68,68,.2)';
+    btn.style.color = '#ef4444';
+    btn.textContent = '⚠️ Impayé';
+  } else {
+    btn.style.background = 'rgba(34,197,94,.2)';
+    btn.style.color = 'var(--green)';
+    btn.textContent = '✅ Payé';
+  }
+}
 
 
 function togglePanier(){
@@ -1763,6 +1791,7 @@ function renderCaisse(){
     const epuise = b.stock <= 0;
     return `<div class="carte-boisson${epuise?' epuise':''}${q>0?' has-qty':''}" id="carte-${b.id}" onclick="caisseAjouter(${b.id})">
       <div class="cb-badge" id="cbadge-${b.id}">${q||''}</div>
+      ${q>0?`<button onclick="event.stopPropagation();caisseSupprimerLigne(${b.id})" style="position:absolute;top:4px;right:4px;width:20px;height:20px;background:rgba(239,68,68,.85);border:none;color:#fff;border-radius:50%;cursor:pointer;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:5;line-height:1">✕</button>`:''}
       <div class="cb-emoji">${b.emoji}</div>
       <div class="cb-nom">${b.nom}</div>
       <div class="cb-prix">${fcfa(b.prix)}</div>
@@ -1850,8 +1879,10 @@ function renderPanier(){
 
 function caisseClear(){
   panier = {};
+  caisseEstImpaye = false;
   document.getElementById('caisseClient').value = '';
-  document.getElementById('caisseObs').value = '';
+  const btn = document.getElementById('btnPaiement');
+  if(btn){ btn.style.background='rgba(34,197,94,.2)'; btn.style.color='var(--green)'; btn.textContent='✅ Payé'; }
   renderCaisse();
 }
 
@@ -1872,9 +1903,9 @@ function caisseValider(){
   if(!ok) return;
   // Deduce stock
   items.forEach(i => { const b=state.boissons.find(x=>x.id===i.boissonId); b.stock -= i.qte; });
-  const obs = document.getElementById('caisseObs').value;
+  const obs = '';
   const client = document.getElementById('caisseClient').value || '—';
-  const estImpaye = /(impay|crédit|credit|dette|doit)/i.test(obs);
+  const estImpaye = caisseEstImpaye;
   const numCmd = 'CMD-'+String(state.nextCmdId).padStart(3,'0');
   state.nextCmdId++;
   state.commandes.push({
@@ -2320,6 +2351,121 @@ function renderRapportAvecPlage(){
   html+=`</div>`;
 
   document.getElementById('rapportContent').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════
+// SUGGESTIONS D'APPRO
+// ═══════════════════════════════════════════════
+function ouvrirSuggestions(){
+  calculerSuggestions();
+  document.getElementById('suggestApproModal').classList.add('open');
+}
+
+function calculerSuggestions(){
+  const base = document.getElementById('suggestBase').value;
+  const nbJours = parseInt(document.getElementById('suggestJours').value)||7;
+
+  const ventesMap = {};
+  const hist = [...state.historique].slice(-nbJours);
+  hist.forEach(j => {
+    (j.ventes||[]).forEach(v => { ventesMap[v.boissonId]=(ventesMap[v.boissonId]||0)+v.qte; });
+    (j.commandes||[]).forEach(cmd => cmd.items.forEach(i => { ventesMap[i.boissonId]=(ventesMap[i.boissonId]||0)+i.qte; }));
+  });
+  state.ventes.forEach(v => { ventesMap[v.boissonId]=(ventesMap[v.boissonId]||0)+v.qte; });
+  state.commandes.forEach(cmd => cmd.items.forEach(i => { ventesMap[i.boissonId]=(ventesMap[i.boissonId]||0)+i.qte; }));
+  const realJours = Math.max(hist.length+1, 1);
+
+  const suggestions = [];
+  state.boissons.forEach(b => {
+    const stockActuel = b.stock;
+    const nbParCond = b.nbParCond||1;
+    const vendu = ventesMap[b.id]||0;
+    const moyJour = vendu / realJours;
+    const stockMin = b.stockMin||0;
+    let condSuggerees = 0;
+    let raison = '';
+
+    if(base === 'min' || base === 'both'){
+      if(stockActuel < stockMin){
+        const condMin = Math.ceil((stockMin - stockActuel) / nbParCond);
+        if(condMin > condSuggerees){ condSuggerees = condMin; }
+        raison += `Stock ${stockActuel} < min ${stockMin}. `;
+      }
+    }
+    if(base === 'avg' || base === 'both'){
+      if(moyJour > 0){
+        const cible = Math.ceil(moyJour * nbJours);
+        if(stockActuel < cible){
+          const condAvg = Math.ceil((cible - stockActuel) / nbParCond);
+          if(condAvg > condSuggerees){ condSuggerees = condAvg; }
+          raison += `Moy. ${moyJour.toFixed(1)}/j → cible ${cible}u. `;
+        }
+      }
+    }
+
+    if(condSuggerees > 0){
+      suggestions.push({ b, condSuggerees, stockActuel, stockMin, moyJour, raison: raison.trim() });
+    }
+  });
+
+  const el = document.getElementById('suggestListe');
+  if(!suggestions.length){
+    el.innerHTML = '<div style="color:var(--green);text-align:center;padding:20px;font-weight:700">✅ Tous les stocks sont suffisants !</div>';
+    window._suggestData = [];
+    return;
+  }
+
+  el.innerHTML = suggestions.map(s => {
+    const urgence = s.stockActuel <= s.stockMin ? 'var(--red)' : 'var(--accent)';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;
+      background:var(--s2);border-radius:10px;margin-bottom:8px;border-left:3px solid ${urgence}">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">${s.b.emoji} ${s.b.nom}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${s.raison}</div>
+        <div style="font-size:11px;color:var(--muted2);margin-top:2px">Stock : <strong>${s.stockActuel}</strong> · Moy : <strong>${s.moyJour.toFixed(1)}</strong>/j</div>
+      </div>
+      <div style="text-align:center;margin:0 10px">
+        <div style="font-size:20px;font-weight:900;color:${urgence}" id="sdisp-${s.b.id}">0</div>
+        <div style="font-size:10px;color:var(--muted)">cond.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+        <button onclick="suggestAdj(${s.b.id},1)" style="width:28px;height:28px;background:var(--s3);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);font-size:16px;line-height:1">+</button>
+        <input type="number" id="sval-${s.b.id}" value="${s.condSuggerees}" min="0" oninput="suggestDisp(${s.b.id})"
+          style="width:44px;text-align:center;background:var(--s2);border:1px solid var(--border);color:var(--text)!important;-webkit-text-fill-color:var(--text)!important;border-radius:6px;padding:3px;font-size:12px;font-weight:700">
+        <button onclick="suggestAdj(${s.b.id},-1)" style="width:28px;height:28px;background:var(--s3);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);font-size:16px;line-height:1">−</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  window._suggestData = suggestions;
+  // Init display
+  suggestions.forEach(s => suggestDisp(s.b.id));
+}
+
+function suggestDisp(id){
+  const v = parseInt(document.getElementById('sval-'+id)?.value)||0;
+  const el = document.getElementById('sdisp-'+id);
+  if(el) el.textContent = v;
+}
+
+function suggestAdj(id, d){
+  const inp = document.getElementById('sval-'+id);
+  inp.value = Math.max(0, (parseInt(inp.value)||0)+d);
+  suggestDisp(id);
+}
+
+function appliquerSuggestions(){
+  if(!window._suggestData || !window._suggestData.length) return;
+  window._suggestData.forEach(s => {
+    const val = parseInt(document.getElementById('sval-'+s.b.id)?.value)||0;
+    if(val > 0){
+      const inp = document.getElementById('nb-'+s.b.id);
+      if(inp) inp.value = val;
+    }
+  });
+  if(typeof calculerAppro === 'function') calculerAppro();
+  document.getElementById('suggestApproModal').classList.remove('open');
+  toast('✅ Quantités pré-remplies dans la livraison !');
 }
 
 </script>
