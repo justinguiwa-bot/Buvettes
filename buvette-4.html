@@ -511,6 +511,23 @@ select.inp{cursor:pointer}
   </div>
 </div>
 
+<!-- MODAL CONFIG GITHUB -->
+<div class="modal-bg" id="ghConfigModal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title">⚙️ Config GitHub<button class="modal-close" onclick="document.getElementById('ghConfigModal').classList.remove('open')">✕</button></div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:14px">Le token permet d'envoyer les rapports au DG. Il est stocké uniquement sur votre téléphone.</div>
+    <div class="form-row">
+      <div class="form-label">GitHub Token</div>
+      <input class="inp" type="password" id="ghTokenInput" placeholder="ghp_...">
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px" id="ghTokenStatus"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('ghConfigModal').classList.remove('open')">Annuler</button>
+      <button class="btn btn-accent" style="flex:2" onclick="sauverGhToken()">💾 Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOP BAR -->
 <div id="topbar">
   <div style="display:flex;flex-direction:column;flex:1;min-width:0">
@@ -520,6 +537,7 @@ select.inp{cursor:pointer}
   <button class="tbtn primary" onclick="nouveauJour()">📅 <span class="btn-label">Nouveau Jour</span></button>
   <button class="tbtn" id="btnConsulterHist" onclick="ouvrirSelectDate()" title="Consulter un jour passé">🔍</button>
   <button class="tbtn" onclick="sauver()">💾</button>
+  <button class="tbtn" onclick="ouvrirGhConfig()" title="Config GitHub">⚙️</button>
   <button class="tbtn" onclick="exportData()">📦</button>
   <button class="tbtn" onclick="window.print()">🖨️</button>
 </div>
@@ -2514,12 +2532,21 @@ function appliquerSuggestions(){
   toast('✅ Quantités pré-remplies dans la livraison !');
 }
 
+
+// ─── STOCKAGE LOCAL ───
+function storeGet(k){ try{ return localStorage.getItem(k); } catch(e){ return null; } }
+function storeSet(k,v){ try{ localStorage.setItem(k,v); } catch(e){} }
+function storeDel(k){ try{ localStorage.removeItem(k); } catch(e){} }
+
 // ═══════════════════════════════════════════════
 // CONFIG GITHUB SYNC
 // ═══════════════════════════════════════════════
 const GH_USER = 'justinguiwa-bot';
 const GH_REPO_BUVETTE = 'Buvettes';
-const GH_TOKEN = atob('Z2hwX011NGtOcHF2MzdWVHk4TDlrclZkY2Vmb1kxdklFazJ3enpraw==');
+// Token depuis URL (?token=ghp_xxx) ou localStorage
+const _urlToken = new URLSearchParams(window.location.search).get('token')||'';
+if(_urlToken) storeSet('gh_token', _urlToken);
+const GH_TOKEN = _urlToken || storeGet('gh_token') || '';
 const GH_RAPPORT_PATH = 'rapport-dg.json';
 
 async function envoyerRapportGitHub(rapportData){
@@ -2561,6 +2588,7 @@ async function envoyerRapportGitHub(rapportData){
 async function envoyerAuDG(){
   const code = document.getElementById('rcCode').dataset.full || dernierCodeRapport;
   if(!code){ toast('Aucun rapport à envoyer','err'); return; }
+  if(!storeGet('gh_token')){ toast('Configurez d\'abord le token GitHub ⚙️','warn'); ouvrirGhConfig(); return; }
   try {
     const json = decodeURIComponent(escape(atob(code)));
     const data = JSON.parse(json);
@@ -2570,6 +2598,19 @@ async function envoyerAuDG(){
     toast('Erreur: '+e.message,'err');
     console.error('envoyerAuDG error:', e);
   }
+}
+
+function ouvrirGhConfig(){
+  const token = storeGet('gh_token')||'';
+  document.getElementById('ghTokenInput').value = token;
+  document.getElementById('ghTokenStatus').textContent = token ? '✅ Token configuré' : '⚠️ Aucun token';
+  document.getElementById('ghConfigModal').classList.add('open');
+}
+function sauverGhToken(){
+  const token = document.getElementById('ghTokenInput').value.trim();
+  if(!token){ storeDel('gh_token'); toast('Token supprimé'); }
+  else { storeSet('gh_token', token); toast('✅ Token sauvegardé !'); }
+  document.getElementById('ghConfigModal').classList.remove('open');
 }
 
 </script>
