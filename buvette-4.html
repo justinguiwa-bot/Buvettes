@@ -469,6 +469,19 @@ select.inp{cursor:pointer}
   </div>
 </div>
 
+<!-- MODAL DATE JOUR SUIVANT -->
+<div class="modal-bg" id="dateJourModal">
+  <div class="modal" style="max-width:320px;text-align:center">
+    <div class="modal-title" style="justify-content:center">📅 Définir la date du jour</div>
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:16px">Choisissez la date pour la nouvelle journée</div>
+    <input type="date" class="inp" id="inputDateJour" style="margin-bottom:16px;font-size:16px;text-align:center">
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="definirDateJour(false)">Aujourd'hui</button>
+      <button class="btn btn-accent" style="flex:2" onclick="definirDateJour(true)">✅ Confirmer</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOP BAR -->
 <div id="topbar">
   <div style="display:flex;flex-direction:column;flex:1;min-width:0">
@@ -1659,9 +1672,20 @@ function nouveauJour(){
     setTimeout(()=>{ const ta=document.getElementById('rcCode'); ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px'; ta.select(); },120);
   }
   state.ventes=[];state.commandes=[];state.appros=[];state.pertes=[];
-  state.dateJour=todayStr();state.nextCmdId=1;
+  state.nextCmdId=1;
+  // Demander la date du jour suivant
+  const inputD = document.getElementById('inputDateJour');
+  const demain = new Date(); demain.setDate(demain.getDate()+1);
+  inputD.value = demain.toISOString().split('T')[0];
+  document.getElementById('dateJourModal').classList.add('open');
+}
+
+function definirDateJour(manuel){
+  const inputD = document.getElementById('inputDateJour');
+  state.dateJour = manuel && inputD.value ? inputD.value : todayStr();
+  document.getElementById('dateJourModal').classList.remove('open');
   save();updateKPI();renderTab(currentTab);
-  if(!hasData) toast('🌅 Nouvelle journée démarrée !');
+  toast('🌅 Nouvelle journée : '+fmtDate(state.dateJour));
 }
 
 function copierCodeRapport(){
